@@ -12,21 +12,25 @@ provider "aws" {
   region = "ap-northeast-1" # 東京リージョン
 }
 
-# 利用可能なVPCを検索する
+# --- ▼▼▼ ここから追加 ▼▼▼ ---
+# このリージョンで利用可能なVPCを検索する
 data "aws_vpcs" "all" {}
 
-# 上で見つけたVPCの中から、利用可能なサブネットを検索する
+# 上で見つかったVPCに属するサブネットを検索する
 data "aws_subnets" "selected" {
   filter {
     name   = "vpc-id"
     values = data.aws_vpcs.all.ids
   }
 }
+# --- ▲▲▲ ここまで追加 ▲▲▲ ---
 
 # EC2インスタンスに適用するセキュリティグループ
 resource "aws_security_group" "web_sg" {
   name        = "web-server-sg"
   description = "Allow HTTP and SSH inbound traffic"
+  # どのVPCに作成するかを明示的に指定
+  vpc_id      = data.aws_vpcs.all.ids[0] # <-- 変更点
 
   ingress {
     description = "HTTP from anywhere"
@@ -41,7 +45,7 @@ resource "aws_security_group" "web_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # 本番環境ではIPを制限してください
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -54,20 +58,23 @@ resource "aws_security_group" "web_sg" {
 
 # EC2インスタンス本体
 resource "aws_instance" "web_server" {
-  ami           = "ami-0c55b159cbfafe1f0" # Amazon Linux 2 AMI (東京リージョン)
+  ami           = "ami-0c55b159cbfafe1f0" 
   instance_type = "t2.micro"
   vpc_security_group_ids = [aws_security_group.web_sg.id]
+  # どのサブネットに配置するかを明示的に指定
+  subnet_id     = data.aws_subnets.selected.ids[0] # <-- 変更点
+  # パブリックIPアドレスを自動で割り当てる設定
+  associate_public_ip_address = true # <-- 重要な追加点
 
-  # インスタンス起動時に実行されるスクリプト
   user_data = <<-EOF
             #!/bin/bash
             yum update -y
             yum install -y httpd
             systemctl start httpd
             systemctl enable httpd
-            echo "<h1>Hello from Terraform on AWS! v2 - Updated!</h1>" > /var/www/html/index.html
+            echo "<h1>Hello from Terraform on AWS! v1</h1>" > /var/www/html/index.html
             EOF
-
+  
   tags = {
     Name = "WebServer-from-Terraform"
   }
