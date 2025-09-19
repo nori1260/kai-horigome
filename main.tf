@@ -33,7 +33,7 @@ resource "aws_internet_gateway" "gw" {
 resource "aws_subnet" "public_a" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
-  availability_zone       = "ap-northeast-1a" # AZ 'a' を指定
+  availability_zone       = "ap-northeast-1a"
   map_public_ip_on_launch = true
   tags = {
     Name = "public-subnet-a"
@@ -44,7 +44,7 @@ resource "aws_subnet" "public_a" {
 resource "aws_subnet" "public_c" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.3.0/24"
-  availability_zone       = "ap-northeast-1c" # AZ 'c' を指定
+  availability_zone       = "ap-northeast-1c"
   map_public_ip_on_launch = true
   tags = {
     Name = "public-subnet-c"
@@ -55,7 +55,7 @@ resource "aws_subnet" "public_c" {
 resource "aws_subnet" "private_a" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.0.2.0/24"
-  availability_zone = "ap-northeast-1a" # AZ 'a' を指定
+  availability_zone = "ap-northeast-1a"
   tags = {
     Name = "private-subnet-a"
   }
@@ -65,7 +65,7 @@ resource "aws_subnet" "private_a" {
 resource "aws_subnet" "private_c" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.0.4.0/24"
-  availability_zone = "ap-northeast-1c" # AZ 'c' を指定
+  availability_zone = "ap-northeast-1c"
   tags = {
     Name = "private-subnet-c"
   }
@@ -119,8 +119,6 @@ resource "aws_route_table_association" "private_c" {
   route_table_id = aws_route_table.private.id
 }
 
-# (S3, セキュリティグループ, ALB, EC2, 出力は前回のコードと同じため省略)
-# ... (以下、前回のコードと同じ内容を貼り付けてください)
 # --- 2. S3とVPCエンドポイント ---
 resource "aws_s3_bucket" "image_bucket" {
   bucket = "my-unique-image-bucket-20250919"
@@ -201,7 +199,7 @@ resource "aws_lb" "main" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
-  subnets            = [aws_subnet.public_a.id, aws_subnet.public_c.id] # 'c' を使用
+  subnets            = [aws_subnet.public_a.id, aws_subnet.public_c.id]
   tags = {
     Name = "main-alb"
   }
@@ -218,11 +216,19 @@ resource "aws_lb_target_group" "web" {
     Name = "web-tg"
   }
 }
-resource "aws_lb_target_group_attachment" "web" {
+
+# ## 変更点 ## ALBターゲットを2台分に修正
+resource "aws_lb_target_group_attachment" "web_a" {
   target_group_arn = aws_lb_target_group.web.arn
-  target_id        = aws_instance.web_server.id
+  target_id        = aws_instance.web_server_a.id
   port             = 80
 }
+resource "aws_lb_target_group_attachment" "web_c" {
+  target_group_arn = aws_lb_target_group.web.arn
+  target_id        = aws_instance.web_server_c.id
+  port             = 80
+}
+
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main.arn
   port              = "80"
@@ -238,9 +244,9 @@ resource "aws_eip" "bastion" {
   tags = { Name = "bastion-eip" }
 }
 resource "aws_instance" "bastion" {
-  ami           = "ami-08f0737412a47a5ed"
+  ami           = "ami-0c55b159cbfafe1f0" # Amazon Linux 2
   instance_type = "t2.micro"
-  subnet_id     = aws_subnet.public_a.id
+  subnet_id     = aws_subnet.public_a.id # 踏み台はAZ 'a' に配置
   vpc_security_group_ids = [aws_security_group.bastion.id]
   tags = { Name = "Bastion-Host" }
 }
@@ -248,10 +254,12 @@ resource "aws_eip_association" "bastion" {
   instance_id   = aws_instance.bastion.id
   allocation_id = aws_eip.bastion.id
 }
-resource "aws_instance" "web_server" {
-  ami           = "ami-08f0737412a47a5ed"
+
+# ## 変更点 ## Webサーバを2台に増やし、AZ 'a' と 'c' に分散
+resource "aws_instance" "web_server_a" {
+  ami           = "ami-0c55b159cbfafe1f0" # Amazon Linux 2
   instance_type = "m5.large"
-  subnet_id     = aws_subnet.private_a.id
+  subnet_id     = aws_subnet.private_a.id # AZ 'a' のプライベートサブネットに配置
   vpc_security_group_ids = [aws_security_group.web.id]
   user_data = <<-EOF
             #!/bin/bash
@@ -259,9 +267,25 @@ resource "aws_instance" "web_server" {
             yum install -y httpd
             systemctl start httpd
             systemctl enable httpd
-            echo "<h1>Hello from behind the ALB!</h1>" > /var/www/html/index.html
+            echo "<h1>Hello from AZ-a!</h1>" > /var/www/html/index.html
             EOF
-  tags = { Name = "WebServer-Private" }
+  tags = { Name = "WebServer-Private-a" }
+}
+
+resource "aws_instance" "web_server_c" {
+  ami           = "ami-0c55b159cbfafe1f0" # Amazon Linux 2
+  instance_type = "m5.large"
+  subnet_id     = aws_subnet.private_c.id # AZ 'c' のプライベートサブネットに配置
+  vpc_security_group_ids = [aws_security_group.web.id]
+  user_data = <<-EOF
+            #!/bin/bash
+            yum update -y
+            yum install -y httpd
+            systemctl start httpd
+            systemctl enable httpd
+            echo "<h1>Hello from AZ-c!</h1>" > /var/www/html/index.html
+            EOF
+  tags = { Name = "WebServer-Private-c" }
 }
 
 # --- 6. 出力 ---
@@ -273,11 +297,23 @@ output "bastion_public_ip" {
   description = "Public IP address of the Bastion Host"
   value       = aws_eip.bastion.public_ip
 }
-output "web_server_private_ip" {
-  description = "Private IP address of the Web Server"
-  value       = aws_instance.web_server.private_ip
+
+# ## 変更点 ## Webサーバが複数台になったためリストで出力
+output "web_server_private_ips" {
+  description = "Private IP addresses of the Web Servers"
+  value       = [aws_instance.web_server_a.private_ip, aws_instance.web_server_c.private_ip]
 }
+
 output "s3_bucket_name" {
   description = "Name of the S3 bucket for images"
   value       = aws_s3_bucket.image_bucket.id
+}
+
+terraform {
+  backend "s3" {
+    bucket         = "terraform-state-bucket-20250919"
+    key            = "path/to/your/terraform.tfstate"
+    region         = "ap-northeast-1"
+    dynamodb_table = "terraform-locks"
+  }
 }
