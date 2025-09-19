@@ -244,7 +244,7 @@ resource "aws_eip" "bastion" {
   tags = { Name = "bastion-eip" }
 }
 resource "aws_instance" "bastion" {
-  ami           = "ami-0c55b159cbfafe1f0" # Amazon Linux 2
+  ami           = "ami-08f0737412a47a5ed" # Amazon Linux 2023
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.public_a.id # 踏み台はAZ 'a' に配置
   vpc_security_group_ids = [aws_security_group.bastion.id]
@@ -257,7 +257,7 @@ resource "aws_eip_association" "bastion" {
 
 # ## 変更点 ## Webサーバを2台に増やし、AZ 'a' と 'c' に分散
 resource "aws_instance" "web_server_a" {
-  ami           = "ami-0c55b159cbfafe1f0" # Amazon Linux 2
+  ami           = "ami-08f0737412a47a5ed" # Amazon Linux 2023
   instance_type = "m5.large"
   subnet_id     = aws_subnet.private_a.id # AZ 'a' のプライベートサブネットに配置
   vpc_security_group_ids = [aws_security_group.web.id]
