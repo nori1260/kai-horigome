@@ -2,18 +2,21 @@ version: 0.2
 
 phases:
   install:
-    runtime-versions:
-      # CodeBuild環境にインストールするTerraformのバージョンを指定
-      terraform: 1.5.7 
+    commands:
+      # Terraformのバージョンを指定
+      - TERRAFORM_VERSION="1.5.7"
+      # Terraformのzipファイルをダウンロード
+      - wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+      # zipファイルを解凍
+      - unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+      # 実行ファイルをパスの通ったディレクトリに移動
+      - mv terraform /usr/local/bin/
   pre_build:
     commands:
       - echo "Initializing Terraform..."
-      # Terraformの初期化
       - terraform init
   build:
     commands:
       - echo "Terraform plan and apply..."
-      # Terraformの実行計画を確認（ログに残る）
       - terraform plan
-      # Terraformを自動承認で適用
       - terraform apply -auto-approve
