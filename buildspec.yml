@@ -1,0 +1,19 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      # CodeBuild環境にインストールするTerraformのバージョンを指定
+      terraform: 1.5.7 
+  pre_build:
+    commands:
+      - echo "Initializing Terraform..."
+      # Terraformの初期化
+      - terraform init
+  build:
+    commands:
+      - echo "Terraform plan and apply..."
+      # Terraformの実行計画を確認（ログに残る）
+      - terraform plan
+      # Terraformを自動承認で適用
+      - terraform apply -auto-approve
