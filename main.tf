@@ -273,7 +273,7 @@ resource "aws_instance" "web_server_a" {
 }
 
 resource "aws_instance" "web_server_c" {
-  ami           = "ami-0c55b159cbfafe1f0" # Amazon Linux 2
+  ami           = "ami-08f0737412a47a5ed" # Amazon Linux 2023
   instance_type = "m5.large"
   subnet_id     = aws_subnet.private_c.id # AZ 'c' のプライベートサブネットに配置
   vpc_security_group_ids = [aws_security_group.web.id]
