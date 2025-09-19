@@ -311,7 +311,7 @@ output "s3_bucket_name" {
 
 terraform {
   backend "s3" {
-    bucket         = "terraform-state-bucket-20250919"
+    bucket         = "my-terraform-state-bucket-20250919"
     key            = "path/to/your/terraform.tfstate"
     region         = "ap-northeast-1"
     dynamodb_table = "terraform-locks"
