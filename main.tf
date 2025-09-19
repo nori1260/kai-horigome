@@ -184,8 +184,8 @@ resource "aws_eip" "bastion" {
 
 # 踏み台サーバ (パブリックサブネットに配置)
 resource "aws_instance" "bastion" {
-  ami           = "ami-0c55b159cbfafe1f0" # Amazon Linux 2
-  instance_type = "t2.micro"
+  ami           = "ami-08a59875ad2a26a5f" # Amazon Linux 2023
+  instance_type = "m5.large"
   subnet_id     = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.bastion.id]
   
