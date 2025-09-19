@@ -12,6 +12,17 @@ provider "aws" {
   region = "ap-northeast-1" # 東京リージョン
 }
 
+# 利用可能なVPCを検索する
+data "aws_vpcs" "all" {}
+
+# 上で見つけたVPCの中から、利用可能なサブネットを検索する
+data "aws_subnets" "selected" {
+  filter {
+    name   = "vpc-id"
+    values = data.aws_vpcs.all.ids
+  }
+}
+
 # EC2インスタンスに適用するセキュリティグループ
 resource "aws_security_group" "web_sg" {
   name        = "web-server-sg"
@@ -54,7 +65,7 @@ resource "aws_instance" "web_server" {
             yum install -y httpd
             systemctl start httpd
             systemctl enable httpd
-            echo "<h1>Hello from Terraform on AWS! v1</h1>" > /var/www/html/index.html
+            echo "<h1>Hello from Terraform on AWS! v2 - Updated!</h1>" > /var/www/html/index.html
             EOF
 
   tags = {
